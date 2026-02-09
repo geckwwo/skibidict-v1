@@ -11,3 +11,8 @@ wheels/
 
 # AI shit
 .claude
+
+# DB
+skibidict.db
+skibidict.db-shm
+skibidict.db-wal

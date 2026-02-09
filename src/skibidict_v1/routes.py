@@ -15,6 +15,10 @@ async def list_words(request: Request) -> JSONResponse:
 async def create_word(request: Request) -> JSONResponse:
     body = await request.json()
     word = await db.insert_word(request.state.db, body)
+    await db.add_log(
+        request.state.db, request.state.user["id"],
+        "create_word", f"id={word['id']}",
+    )
     return JSONResponse(word, status_code=201)
 
 
@@ -32,6 +36,10 @@ async def update_word(request: Request) -> JSONResponse:
     word = await db.update_word(request.state.db, word_id, body)
     if word is None:
         return JSONResponse({"detail": "not found"}, status_code=404)
+    await db.add_log(
+        request.state.db, request.state.user["id"],
+        "update_word", f"id={word_id}",
+    )
     return JSONResponse(word)
 
 
@@ -40,4 +48,15 @@ async def delete_word(request: Request) -> Response:
     deleted = await db.delete_word(request.state.db, word_id)
     if not deleted:
         return JSONResponse({"detail": "not found"}, status_code=404)
+    await db.add_log(
+        request.state.db, request.state.user["id"],
+        "delete_word", f"id={word_id}",
+    )
     return Response(status_code=204)
+
+
+async def list_logs(request: Request) -> JSONResponse:
+    limit = int(request.query_params.get("limit", "100"))
+    offset = int(request.query_params.get("offset", "0"))
+    logs = await db.get_logs(request.state.db, limit=limit, offset=offset)
+    return JSONResponse(logs)

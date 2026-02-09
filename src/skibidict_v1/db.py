@@ -27,10 +27,25 @@ CREATE TABLE IF NOT EXISTS definition_tags (
     tag           TEXT    NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS users (
+    id    INTEGER PRIMARY KEY AUTOINCREMENT,
+    name  TEXT    NOT NULL UNIQUE,
+    token TEXT    NOT NULL UNIQUE
+);
+
+CREATE TABLE IF NOT EXISTS logs (
+    id        INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id   INTEGER NOT NULL REFERENCES users(id),
+    action    TEXT    NOT NULL,
+    detail    TEXT    NOT NULL DEFAULT '',
+    timestamp TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+);
+
 CREATE INDEX IF NOT EXISTS idx_spellings_word    ON spellings(word_id);
 CREATE INDEX IF NOT EXISTS idx_spellings_text    ON spellings(spelling);
 CREATE INDEX IF NOT EXISTS idx_definitions_word  ON definitions(word_id);
 CREATE INDEX IF NOT EXISTS idx_def_tags_def      ON definition_tags(definition_id);
+CREATE INDEX IF NOT EXISTS idx_logs_timestamp    ON logs(timestamp);
 """
 
 type Word = dict[str, Any]
@@ -163,3 +178,52 @@ async def delete_word(db: aiosqlite.Connection, word_id: int) -> bool:
     await db.execute("DELETE FROM words WHERE id = ?", (word_id,))
     await db.commit()
     return True
+
+
+# ── users ────────────────────────────────────────────────────────────
+
+
+async def get_user_by_token(
+    db: aiosqlite.Connection, token: str
+) -> dict[str, Any] | None:
+    cur = await db.execute(
+        "SELECT id, name, token FROM users WHERE token = ?", (token,)
+    )
+    row = await cur.fetchone()
+    if row is None:
+        return None
+    return {"id": row["id"], "name": row["name"], "token": row["token"]}
+
+
+async def create_user(db: aiosqlite.Connection, name: str, token: str) -> None:
+    await db.execute(
+        "INSERT INTO users (name, token) VALUES (?, ?)", (name, token)
+    )
+    await db.commit()
+
+
+# ── logs ─────────────────────────────────────────────────────────────
+
+
+async def add_log(
+    db: aiosqlite.Connection, user_id: int, action: str, detail: str = ""
+) -> None:
+    await db.execute(
+        "INSERT INTO logs (user_id, action, detail) VALUES (?, ?, ?)",
+        (user_id, action, detail),
+    )
+    await db.commit()
+
+
+async def get_logs(
+    db: aiosqlite.Connection, *, limit: int = 100, offset: int = 0
+) -> list[dict[str, Any]]:
+    limit = min(limit, 300)
+    cur = await db.execute(
+        """SELECT l.id, u.name AS user, l.action, l.detail, l.timestamp
+           FROM logs l JOIN users u ON l.user_id = u.id
+           ORDER BY l.id DESC
+           LIMIT ? OFFSET ?""",
+        (limit, offset),
+    )
+    return [dict(r) for r in await cur.fetchall()]
