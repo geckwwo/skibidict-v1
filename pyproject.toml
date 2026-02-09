@@ -1,0 +1,18 @@
+[project]
+name = "skibidict-v1"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+authors = [
+    { name = "GeckoNerd", email = "unknown7official@gmail.com" }
+]
+requires-python = ">=3.14"
+dependencies = [
+    "aiosqlite>=0.22.1",
+    "starlette>=0.52.1",
+    "uvicorn[standard]>=0.40.0",
+]
+
+[build-system]
+requires = ["uv_build>=0.9.29,<0.10.0"]
+build-backend = "uv_build"
